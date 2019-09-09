@@ -36,7 +36,7 @@ func getDestinationFile() string {
 }
 
 func removeEmptyElements(contents string) string {
-	re := regexp.MustCompile(`\r\n[ \t]*<.+[^\/]\/>`)
+	re := regexp.MustCompile(`\r*\n*[ \t]*<[a-zA-Z_]+[^\/]\/>`)
 
 	return re.ReplaceAllString(contents, "")
 }
