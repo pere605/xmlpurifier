@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -8,31 +10,54 @@ import (
 )
 
 func main() {
-	sourceFile := os.Args[1]
-	file, error := ioutil.ReadFile(sourceFile)
+	files := getFilesToFix()
 
-	if error != nil {
-		panic("Could not read the source file")
-	}
+	for _, fileName := range files {
+		s := fmt.Sprintln("Parsing file", fileName)
+		io.WriteString(os.Stdout, s)
 
-	cleanedContents := removeEmptyElements(string(file))
+		file, error := ioutil.ReadFile(fileName)
 
-	writingError := ioutil.WriteFile(
-		getDestinationFile(),
-		[]byte(strings.TrimSpace(cleanedContents)),
-		0644)
+		if error != nil {
+			panic("Could not read the source file")
+		}
 
-	if writingError != nil {
-		panic("Could not write to the destination file")
+		cleanedContents := removeEmptyElements(string(file))
+
+		writingError := ioutil.WriteFile(
+			fileName,
+			[]byte(strings.TrimSpace(cleanedContents)),
+			0644)
+
+		if writingError != nil {
+			panic("Could not write to the destination file")
+		}
 	}
 }
 
-func getDestinationFile() string {
-	if len(os.Args) == 3 {
-		return os.Args[2]
+func getFilesToFix() []string {
+	if len(os.Args) == 2 {
+		return []string{os.Args[1]}
 	}
 
-	return os.Args[1]
+	filesInCurrentDir, dirScanError := ioutil.ReadDir(".")
+
+	if dirScanError != nil {
+		panic("Error scanning current dictionary")
+	}
+
+	var files []string
+
+	for _, file := range filesInCurrentDir {
+		re := regexp.MustCompile(`.+.xml`)
+		foundOccurrences := re.FindAllString(file.Name(), -1)
+
+		if len(foundOccurrences) > 0 {
+			files = append(files, file.Name())
+		}
+	}
+
+	return files
 }
 
 func removeEmptyElements(contents string) string {
