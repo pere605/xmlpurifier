@@ -2,48 +2,88 @@ package main
 
 import (
 	"fmt"
+	"github.com/urfave/cli"
 	"io"
+	"strings"
+
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
-	"strings"
 )
 
 func main() {
-	files := getFilesToFix()
+	var filePath string
+	var dirPath string
 
-	for _, fileName := range files {
-		s := fmt.Sprintln("Parsing file", fileName)
-		io.WriteString(os.Stdout, s)
+	app := cli.NewApp()
+	app.Name = "xmlpurifier"
+	app.Usage = "Removes empty elements from XML file"
+	app.Version = "0.0.1"
 
-		file, error := ioutil.ReadFile(fileName)
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name: "file, f",
+			Usage: "file to purify (leave empty for current directory)",
+			Destination: &filePath,
+		},
+		cli.StringFlag{
+			Name: "dir, d",
+			Value: "./",
+			Usage: "directory containing files to purify",
+			Destination: &dirPath,
+		},
+	}
 
-		if error != nil {
-			panic("Could not read the source file")
+	app.Action = func(c *cli.Context) error {
+		files := getFilesToFix(filePath, dirPath)
+
+		if len(files) == 0 {
+			fmt.Println("No files to purify")
+			return nil
 		}
 
-		cleanedContents := removeEmptyElements(string(file))
+		for _, fileName := range files {
+			s := fmt.Sprintln("Parsing file", fileName)
+			io.WriteString(os.Stdout, s)
 
-		writingError := ioutil.WriteFile(
-			fileName,
-			[]byte(strings.TrimSpace(cleanedContents)),
-			0644)
+			file, error := ioutil.ReadFile(fileName)
 
-		if writingError != nil {
-			panic("Could not write to the destination file")
+			if error != nil {
+				log.Fatal(error)
+			}
+
+			cleanedContents := removeEmptyElements(string(file))
+
+			writingError := ioutil.WriteFile(
+				fileName,
+				[]byte(strings.TrimSpace(cleanedContents)),
+				0644)
+
+			if writingError != nil {
+				log.Fatal(writingError)
+			}
 		}
+
+		return nil
+	}
+
+	err := app.Run(os.Args)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
-func getFilesToFix() []string {
-	if len(os.Args) == 2 {
-		return []string{os.Args[1]}
+func getFilesToFix(filePath string, dirPath string) []string {
+	if filePath != "" {
+		return []string{filePath}
 	}
 
-	filesInCurrentDir, dirScanError := ioutil.ReadDir(".")
+	filesInCurrentDir, dirScanError := ioutil.ReadDir(dirPath)
 
 	if dirScanError != nil {
-		panic("Error scanning current dictionary")
+		log.Fatal(dirScanError)
 	}
 
 	var files []string
@@ -53,7 +93,7 @@ func getFilesToFix() []string {
 		foundOccurrences := re.FindAllString(file.Name(), -1)
 
 		if len(foundOccurrences) > 0 {
-			files = append(files, file.Name())
+			files = append(files, dirPath + file.Name())
 		}
 	}
 
