@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/urfave/cli"
 	"io/ioutil"
 	"log"
@@ -38,7 +37,7 @@ func main() {
 		files := getFilesToFix(filePath, dirPath)
 
 		if len(files) == 0 {
-			fmt.Println("No files to purify")
+			log.Println("No files to purify")
 			return nil
 		}
 
