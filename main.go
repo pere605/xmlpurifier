@@ -42,8 +42,8 @@ func main() {
 		}
 
 		var wg sync.WaitGroup
+		wg.Add(len(files))
 		for _, fileName := range files {
-			wg.Add(1)
 			go cleanFile(&wg, fileName)
 		}
 		wg.Wait()
