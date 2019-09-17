@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli"
-	"io"
-	"strings"
-
 	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
+	"strings"
+	"sync"
 )
 
 func main() {
@@ -43,27 +42,12 @@ func main() {
 			return nil
 		}
 
+		var wg sync.WaitGroup
 		for _, fileName := range files {
-			s := fmt.Sprintln("Parsing file", fileName)
-			io.WriteString(os.Stdout, s)
-
-			file, error := ioutil.ReadFile(fileName)
-
-			if error != nil {
-				log.Fatal(error)
-			}
-
-			cleanedContents := removeEmptyElements(string(file))
-
-			writingError := ioutil.WriteFile(
-				fileName,
-				[]byte(strings.TrimSpace(cleanedContents)),
-				0644)
-
-			if writingError != nil {
-				log.Fatal(writingError)
-			}
+			wg.Add(1)
+			go cleanFile(&wg, fileName)
 		}
+		wg.Wait()
 
 		return nil
 	}
@@ -73,6 +57,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func cleanFile(wg *sync.WaitGroup, fileName string) {
+	log.Printf("Parsing file %s", fileName)
+
+	file, error := ioutil.ReadFile(fileName)
+
+	if error != nil {
+		log.Fatal(error)
+	}
+
+	cleanedContents := removeEmptyElements(string(file))
+
+	writingError := ioutil.WriteFile(
+		fileName,
+		[]byte(strings.TrimSpace(cleanedContents)),
+		0644)
+
+	if writingError != nil {
+		log.Fatal(writingError)
+	}
+	defer wg.Done()
 }
 
 func getFilesToFix(filePath string, dirPath string) []string {
@@ -89,7 +95,7 @@ func getFilesToFix(filePath string, dirPath string) []string {
 	var files []string
 
 	for _, file := range filesInCurrentDir {
-		re := regexp.MustCompile(`.+.xml`)
+		re := regexp.MustCompile(`.+.xml$`)
 		foundOccurrences := re.FindAllString(file.Name(), -1)
 
 		if len(foundOccurrences) > 0 {
