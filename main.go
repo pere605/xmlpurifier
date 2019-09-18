@@ -11,8 +11,8 @@ import (
 )
 
 func main() {
-	var filePath string
-	var dirPath string
+	isFile := false
+	isDir := false
 
 	app := cli.NewApp()
 	app.Name = "xmlpurifier"
@@ -20,21 +20,18 @@ func main() {
 	app.Version = "0.0.1"
 
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "file, f",
-			Usage: "file to purify (leave empty for current directory)",
-			Destination: &filePath,
+			Destination: &isFile,
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "dir, d",
-			Value: "./",
-			Usage: "directory containing files to purify",
-			Destination: &dirPath,
+			Destination: &isDir,
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		files := getFilesToFix(filePath, dirPath)
+		files := getFilesToFix(c, isFile, isDir)
 
 		if len(files) == 0 {
 			log.Println("No files to purify")
@@ -80,12 +77,24 @@ func cleanFile(wg *sync.WaitGroup, fileName string) {
 	defer wg.Done()
 }
 
-func getFilesToFix(filePath string, dirPath string) []string {
-	if filePath != "" {
-		return []string{filePath}
+func getFilesToFix(c *cli.Context, isFile bool, isDir bool) []string {
+	if isFile {
+		var fileNames []string
+
+		for _, fileName := range c.Args() {
+			fileNames = append(fileNames, fileName)
+		}
+
+		return fileNames
 	}
 
-	filesInCurrentDir, dirScanError := ioutil.ReadDir(dirPath)
+	directory := "./"
+
+	if isDir {
+		directory = c.Args().Get(0)
+	}
+
+	filesInCurrentDir, dirScanError := ioutil.ReadDir(directory)
 
 	if dirScanError != nil {
 		log.Fatal(dirScanError)
@@ -98,7 +107,7 @@ func getFilesToFix(filePath string, dirPath string) []string {
 		foundOccurrences := re.FindAllString(file.Name(), -1)
 
 		if len(foundOccurrences) > 0 {
-			files = append(files, dirPath + file.Name())
+			files = append(files, directory + file.Name())
 		}
 	}
 
